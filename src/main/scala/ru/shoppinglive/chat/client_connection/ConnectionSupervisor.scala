@@ -10,14 +10,14 @@ class ConnectionSupervisor extends Actor with ActorLogging {
   import ConnectionSupervisor._
 
   override def receive: Receive = LoggingReceive {
-    case cmd @ CreateConnection(_) => context.actorOf(Connection.props) forward cmd
+    case cmd @ CreateConnection => context.actorOf(Connection.props) forward cmd
   }
 
 }
 
 object ConnectionSupervisor {
 
-  case class CreateConnection(replyTo: ActorRef)
+  case object CreateConnection
 
   def props = Props[ConnectionSupervisor]
 }

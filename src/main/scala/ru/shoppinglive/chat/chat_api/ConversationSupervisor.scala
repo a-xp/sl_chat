@@ -10,8 +10,8 @@ import scala.collection.mutable
 /**
   * Created by rkhabibullin on 13.12.2016.
   */
-class Supervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.Group]])  extends Actor with ActorLogging {
-  import Supervisor._
+class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.Group]])  extends Actor with ActorLogging {
+  import ConversationSupervisor._
   private val clients = mutable.Map.empty[Int, Seq[ActorRef]]
   private val conversations = mutable.Map.empty[Int, ActorRef]
   val api = new DialogList
@@ -56,7 +56,7 @@ class Supervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.G
 
 }
 
-object Supervisor{
+object ConversationSupervisor{
   trait Cmd
   case class TokenCmd(token:String) extends Cmd
   case class BroadcastCmd(group: Int, msg:String) extends Cmd
@@ -69,8 +69,8 @@ object Supervisor{
   case class AuthenticatedCmd(from:Int, cmd:Cmd, replyTo:ActorRef)
 
   trait Result
-  case class AuthSuccess(role: String, roleName: String, login:String) extends Result
-  case class AuthFailed(reason:String) extends Result
+  case class AuthSuccessResult(role: String, roleName: String, login:String) extends Result
+  case class AuthFailedResult(reason:String) extends Result
   case class GroupInfo(id:Int, name:String)
   case class GroupsResult(groups:Seq[GroupInfo]) extends Result
   case class ContactInfo(dlgId:Int, userId:Int, login: String, hasNew: Boolean, last: Long)
@@ -105,4 +105,5 @@ object Supervisor{
     ContactInfo(dlg.id, dlg.to, user.login, dlg.hasNew, dlg.lastMsgTime)
   }
 
+  def props(usersDb: Agent[Seq[Crm.User]], groupDb: Agent[Seq[Crm.Group]]) = Props(new ConversationSupervisor(usersDb, groupDb))
 }

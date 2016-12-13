@@ -1,20 +1,21 @@
 package ru.shoppinglive.chat.client_connection
 
-import akka.actor.{ActorLogging, ActorRef}
+import akka.actor.{ActorLogging, ActorRef, PoisonPill, Props}
 import akka.event.LoggingReceive
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.stream.actor.ActorSubscriberMessage.{OnComplete, OnError, OnNext}
 import akka.stream.actor.{ActorSubscriber, WatermarkRequestStrategy}
 import org.json4s.native.Serialization
+import ru.shoppinglive.chat.chat_api.ConversationSupervisor.Cmd
+import ru.shoppinglive.chat.client_connection.Connection.RecieverRdy
 
 /**
   * Created by rkhabibullin on 13.12.2016.
   */
 class Reciever(val master:ActorRef) extends ActorSubscriber with ActorLogging {
-  import ChatService.{Cmd,DisconnectedCmd}
   override def preStart(): Unit = {
     super.preStart()
-    master ! "input rdy"
+    master ! RecieverRdy
   }
   override val requestStrategy = new WatermarkRequestStrategy(3)
   override def receive: Receive = LoggingReceive {
@@ -22,19 +23,20 @@ class Reciever(val master:ActorRef) extends ActorSubscriber with ActorLogging {
       tmToCmd(tm) match {
         case cmd:Cmd => master ! cmd
       }
-    case OnComplete => master ! DisconnectedCmd
-    case OnError => master ! DisconnectedCmd
+    case OnComplete => self ! PoisonPill
+    case OnError => self ! PoisonPill
+  }
+
+  def tmToCmd(tm:TextMessage):Cmd = {
+    import org.json4s.ShortTypeHints
+    import org.json4s.native.Serialization.read
+    import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
+    implicit val formats = Serialization.formats(ShortTypeHints(List(classOf[CreateDlgCmd], classOf[TokenCmd], classOf[BroadcastCmd], classOf[ReadCmd], classOf[MsgCmd], classOf[TypingCmd])))
+    read[Cmd](tm.getStrictText)
   }
 }
 
 object Reciever {
 
-  def tmToCmd(tm:TextMessage):ChatService.Cmd = {
-    import org.json4s.ShortTypeHints
-    import org.json4s.native.Serialization.read
-    import ChatService._
-    implicit val formats = Serialization.formats(ShortTypeHints(List(classOf[TokenCmd], classOf[BroadcastCmd], classOf[OpenDlgCmd], classOf[ReadCmd], classOf[MsgCmd], classOf[TypingCmd])))
-    read[Cmd](tm.getStrictText)
-  }
-
+  def props(master:ActorRef) = Props(new Reciever(master))
 }

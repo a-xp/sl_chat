@@ -2,14 +2,12 @@ package ru.shoppinglive.chat.client_connection
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import akka.event.LoggingReceive
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
 import akka.http.scaladsl.model.ws.Message
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import org.json4s.native.Serialization.read
-import ru.shoppinglive.ChatService
-import ru.shoppinglive.ClientConnection.ClientAuthenticated
+import ru.shoppinglive.chat.admin_api.CrmToken.{AuthFailed, AuthSuccess}
+import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
+import ru.shoppinglive.chat.client_connection.ConnectionSupervisor.CreateConnection
 
 import scala.util.{Failure, Success}
 
@@ -21,44 +19,47 @@ class Connection extends Actor with ActorLogging {
   var clientId = 0
   var out:Option[ActorRef] = None
   var in:Option[ActorRef] = None
-  import ru.shoppinglive.ChatService._
   implicit val materializer = ActorMaterializer()
   implicit val ec = context.dispatcher
+  val core = context.actorSelection("/user/chat")
+  val auth = context.actorSelection("/user/auth")
 
-  override def receive:Receive = LoggingReceive {
-    case NewConnection =>
-      sender ! (Sink.actorSubscriber[Message](Props(new RecieverActor(self))), Source.actorPublisher[Message](Props(new SenderActor(self))))
-    case TokenCmd(token) =>
-      http.singleRequest(HttpRequest(uri = "http://rkhabibullin.old.shoppinglive.ru/crm/modules/ajax/authorization/token/info?token=" + token)) flatMap {
-        case HttpResponse(StatusCodes.OK, _, entity,_) =>
-          Unmarshal(entity).to[String]
-      } map {
-        import org.json4s.native.Serialization.read
-        import org.json4s.DefaultFormats
-        implicit val formats = DefaultFormats + StringToInt
-        read[TokenInfo]
-      } onComplete{
-        case Success(ti) =>
-          out.get ! AuthResult(true)
-          self ! ClientAuthenticated(ti.id)
-          context.parent ! ConnectedCmd(ti.id)
-        case Failure(t) => out.get ! AuthResult(false)
-      }
-    case ClientAuthenticated(id) => clientId = id
-    case "output rdy" => out = Some(sender); context.watch(sender)
-    case "input rdy" => in = Some(sender); context.watch(sender)
-    case result:ChatService.Result => out foreach(_ forward result)
-    case cmd: ChatService.Cmd => context.parent ! cmd
-    case Terminated => context.parent ! DisconnectedCmd
-      self ! PoisonPill
+  import Connection._
+  override def receive:Receive = creatingStreams
+
+  def creatingStreams:Receive = LoggingReceive {
+    case CreateConnection =>
+      sender ! (Sink.actorSubscriber[Message](Reciever.props(self)),
+        Source.actorPublisher[Message](Sender.props(self)))
+    case SenderRdy => out = Some(sender)
+      context.watch(sender)
+      if(in.isDefined)context.become(authenticating)
+    case RecieverRdy => in = Some(sender)
+      context.watch(sender)
+      if(out.isDefined)context.become(authenticating)
+  }
+
+  def authenticating:Receive = LoggingReceive {
+    case cmd @ TokenCmd(_) => auth ! cmd
+    case AuthSuccess(user) => clientId = user.id
+      core ! AuthenticatedCmd(user.id, ConnectedCmd(), self)
+      out.get ! AuthSuccessResult(user.role.code, user.role.name, user.login)
+      context.become(listening)
+    case AuthFailed => out.get ! AuthFailedResult("can not authorize")
+  }
+
+  def listening:Receive = LoggingReceive {
+    case result: Result => out.get ! result
+    case cmd: Cmd => core ! AuthenticatedCmd(clientId, cmd, self)
   }
 }
 
 object Connection {
   def props = Props[Connection]
 
-  case class SenderRdy()
-  case class RecieverRdy()
+  case object SenderRdy
+  case object RecieverRdy
+  case class ClientAuthenticated(id:Int)
 }
 
 
