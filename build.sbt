@@ -12,6 +12,7 @@ libraryDependencies ++= {
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaVer,
     "com.typesafe.akka" %% "akka-slf4j" % akkaVer,
+    "com.typesafe.akka" %% "akka-agent" % akkaVer,
     "com.typesafe.akka" %% "akka-http" % akkaHttpVer,
     "ch.qos.logback" % "logback-classic" % "1.1.3",
     "org.json4s" %% "json4s-native" % "3.5.0"
