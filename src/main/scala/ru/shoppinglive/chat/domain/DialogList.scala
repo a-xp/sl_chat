@@ -13,8 +13,8 @@ class DialogList {
   var list = Vector.empty[DialogList.Dialog]
 
   def create(users:Set[Int]):DialogList.Dialog = {
-    val dlg = Dialog(list.size, users, Set.empty[Int], 0)
-    dlg +: list
+    val dlg = Dialog(list.size+1, users, Set.empty[Int], 0)
+    list = list :+ dlg
     dlg
   }
 
@@ -27,8 +27,8 @@ class DialogList {
   }
 
   def newMsg(id:Int, from:Int, time:Long):Unit = {
-    val dlg = list(id)
-    list = list.updated(id, dlg.copy(newFor = dlg.users-from, lastMsgTime = time))
+    val dlg = list(id-1)
+    list = list.updated(id-1, dlg.copy(newFor = dlg.users-from, lastMsgTime = time))
   }
 
   def getUserView(dlgId:Int, userId:Int):DialogUserView = {
@@ -41,15 +41,15 @@ class DialogList {
   }
 
   def acceptedMsg(dlgId:Int, user:Int):Unit = {
-    val dlg = list(dlgId)
-    list = list.updated(dlgId, dlg.copy(newFor = dlg.newFor - user))
+    val dlg = list(dlgId-1)
+    list = list.updated(dlgId-1, dlg.copy(newFor = dlg.newFor - user))
   }
 
   def get(id:Int):DialogList.Dialog = {
     list(id-1)
   }
 
-  def getOthers(dlgId:Int, userId:Int) = {
+  def getOthers(dlgId:Int, userId:Int):Set[Int] = {
     list(dlgId-1).users.filter(_!=userId)
   }
 

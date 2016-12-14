@@ -17,6 +17,7 @@ import ru.shoppinglive.chat.admin_api.{CrmActor, CrmToken}
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor
 import ru.shoppinglive.chat.domain.Crm
+import ru.shoppinglive.chat.domain.Crm.RoleSerializer
 
 import scala.concurrent.{Await, Future}
 import scala.io.StdIn
@@ -64,7 +65,7 @@ object WebServer extends App{
   import org.json4s.native.Serialization.{write,read}
   import scala.concurrent.duration._
   import ch.megard.akka.http.cors.CorsDirectives._
-  implicit val formats = org.json4s.DefaultFormats
+  implicit val formats = org.json4s.DefaultFormats + RoleSerializer
   implicit val timeout = Timeout(50.milliseconds)
 
   val apiRoute = cors() {

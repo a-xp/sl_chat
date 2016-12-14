@@ -1,9 +1,10 @@
 package ru.shoppinglive.chat.chat_api
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.event.LoggingReceive
+import ru.shoppinglive.chat.chat_api.Cmd._
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
+import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.domain.Dialog
 
 
@@ -26,6 +27,8 @@ class Conversation(id:Int) extends Actor with ActorLogging{
         val msg = Dialog.Msg(text, time, fromUser)
         api.newMsg(msg)
         replyTo ! DialogNewMsg(id, List(msg))
+        println(api.state)
+      case _ =>
     }
   }
 }

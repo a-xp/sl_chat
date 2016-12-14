@@ -6,7 +6,9 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.actor.ActorPublisher
 import akka.stream.actor.ActorPublisherMessage.{Cancel, Request}
 import org.json4s.native.Serialization
-import ru.shoppinglive.chat.chat_api.ConversationSupervisor.Result
+import ru.shoppinglive.chat.chat_api.Cmd.FindOrCreateDlgCmd
+import ru.shoppinglive.chat.chat_api.Result
+import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.client_connection.Connection.SenderRdy
 
 /**

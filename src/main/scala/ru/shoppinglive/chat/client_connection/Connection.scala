@@ -6,7 +6,10 @@ import akka.http.scaladsl.model.ws.Message
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import ru.shoppinglive.chat.admin_api.CrmToken.{AuthFailed, AuthSuccess}
+import ru.shoppinglive.chat.chat_api.Cmd._
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
+import ru.shoppinglive.chat.chat_api.{Cmd, Result}
+import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor.CreateConnection
 
 import scala.util.{Failure, Success}
@@ -43,7 +46,7 @@ class Connection extends Actor with ActorLogging {
     case cmd @ TokenCmd(_) => auth ! cmd
     case AuthSuccess(user) => clientId = user.id
       core ! AuthenticatedCmd(user.id, ConnectedCmd(), self)
-      out.get ! AuthSuccessResult(user.role.code, user.role.name, user.login)
+      out.get ! AuthSuccessResult(user.role.code, user.role.name, user.login, user.id)
       context.become(listening)
     case AuthFailed => out.get ! AuthFailedResult("can not authorize")
   }

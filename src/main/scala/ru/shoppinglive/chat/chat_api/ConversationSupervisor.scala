@@ -3,7 +3,8 @@ package ru.shoppinglive.chat.chat_api
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.agent.Agent
 import akka.event.LoggingReceive
-import ru.shoppinglive.chat.domain.{Crm, Dialog, DialogList}
+import ru.shoppinglive.chat.chat_api.Result._
+import ru.shoppinglive.chat.domain.{Crm, DialogList}
 
 import scala.collection.mutable
 
@@ -12,6 +13,7 @@ import scala.collection.mutable
   */
 class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.Group]])  extends Actor with ActorLogging {
   import ConversationSupervisor._
+  import ru.shoppinglive.chat.chat_api.Cmd._
   private val clients = mutable.Map.empty[Int, Seq[ActorRef]]
   private val conversations = mutable.Map.empty[Int, ActorRef]
   val api = new DialogList
@@ -23,6 +25,12 @@ class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Age
         replyTo ! ContactsResult(extendContactsList(from, api.listForUser(from), usersDb()))
         mapGroupsList(usersDb()(from-1), groupDb()) foreach( replyTo ! _)
       case DisconnectedCmd() => clients(from) = clients(from).filter(_ != replyTo)
+      case FindOrCreateDlgCmd(withWhom) =>
+        val dlg = api.findOrCreate(Set(from, withWhom))
+        val ntfCreator = ContactUpdate(extendContact(api.getUserView(dlg.id, from), usersDb()))
+        clients(from) foreach(_ ! ntfCreator)
+        val ntfOther = ContactUpdate(extendContact(api.getUserView(dlg.id, withWhom), usersDb()))
+        clients.get(withWhom).foreach(_ foreach (_ ! ntfOther))
       case CreateDlgCmd(withWhom) =>
         val dlg = api.create(Set(from, withWhom))
         val ntfCreator = ContactUpdate(extendContact(api.getUserView(dlg.id, from), usersDb()))
@@ -33,12 +41,12 @@ class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Age
         api.acceptedMsg(dlgId, from)
         val ntfCreator = ContactUpdate(extendContact(api.getUserView(dlgId, from), usersDb()))
         clients(from) foreach(_ ! ntfCreator)
-        conversations.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId))) ! athcmd
+        conversations.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId), "dialog-"+dlgId)) ! athcmd
       case TypingCmd(dlgId) => api.getOthers(dlgId, from) flatMap clients.get foreach( _ foreach (_ ! TypingNotification(dlgId, from)))
       case cmd @ MsgCmd(dlgId, _, _) =>
         val curTime=System.currentTimeMillis()
         api.newMsg(dlgId, from, curTime)
-        conversations.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId))) ! AuthenticatedCmd(from, cmd.copy(time=curTime), replyTo)
+        conversations.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId), "dialog-"+dlgId)) ! AuthenticatedCmd(from, cmd.copy(time=curTime), replyTo)
         clients(from) foreach(_ ! ContactUpdate(extendContact(api.getUserView(dlgId, from), usersDb())))
         api.getOthers(dlgId, from) foreach {
           otherId => clients.get(otherId) foreach(_ foreach(_ ! ContactUpdate(extendContact(api.getUserView(dlgId, otherId), usersDb()))))
@@ -48,37 +56,18 @@ class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Age
         usersDb().filter(_.groups.contains(group)).filter(_.id!=from).foreach{
           to => val dlg = api.findOrCreate(Set(to.id, from))
             api.newMsg(dlg.id, from, curTime)
-            conversations.getOrElseUpdate(dlg.id, context.actorOf(Conversation.props(dlg.id))) ! AuthenticatedCmd(from, MsgCmd(dlg.id, msg, curTime), replyTo)
+            conversations.getOrElseUpdate(dlg.id, context.actorOf(Conversation.props(dlg.id), "dialog-"+dlg.id)) ! AuthenticatedCmd(from, MsgCmd(dlg.id, msg, curTime), replyTo)
             clients.get(to.id) foreach(_ foreach(_ ! ContactUpdate(extendContact(api.getUserView(dlg.id, to.id), usersDb()))))
         }
+      case _ =>
     }
   }
 
 }
 
 object ConversationSupervisor{
-  trait Cmd
-  case class TokenCmd(token:String) extends Cmd
-  case class BroadcastCmd(group: Int, msg:String) extends Cmd
-  case class CreateDlgCmd(withWhom:Int) extends Cmd
-  case class ReadCmd(dlgId: Int, from:Int=0, to:Int=5) extends Cmd
-  case class TypingCmd(dlgId: Int) extends Cmd
-  case class MsgCmd(dlgId:Int, msg:String, time:Long=0) extends Cmd
-  case class ConnectedCmd() extends Cmd
-  case class DisconnectedCmd() extends Cmd
-  case class AuthenticatedCmd(from:Int, cmd:Cmd, replyTo:ActorRef)
 
-  trait Result
-  case class AuthSuccessResult(role: String, roleName: String, login:String) extends Result
-  case class AuthFailedResult(reason:String) extends Result
-  case class GroupInfo(id:Int, name:String)
-  case class GroupsResult(groups:Seq[GroupInfo]) extends Result
-  case class ContactInfo(dlgId:Int, userId:Int, login: String, hasNew: Boolean, last: Long)
-  case class ContactsResult(contacts: Seq[ContactInfo]) extends Result
-  case class ContactUpdate(contact: ContactInfo) extends Result
-  case class DialogNewMsg(dlgId:Int, msg:Seq[Dialog.Msg]) extends Result
-  case class DialogMsgList(dlgId:Int, msg:Seq[Dialog.Msg], total:Int, from:Int, to:Int) extends Result
-  case class TypingNotification(dlgId:Int, who:Int) extends Result
+  case class AuthenticatedCmd(from:Int, cmd:Cmd, replyTo:ActorRef)
 
   def extendContactsList(userId:Int, dialogs: Seq[DialogList.DialogUserView], users: Seq[Crm.User]): Seq[ContactInfo] ={
     val user = users(userId-1)

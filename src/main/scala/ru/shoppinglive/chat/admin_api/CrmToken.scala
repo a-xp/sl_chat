@@ -9,10 +9,10 @@ import akka.stream.ActorMaterializer
 import org.json4s.CustomSerializer
 import org.json4s.JsonAST.{JInt, JString}
 import ru.shoppinglive.chat.admin_api.CrmToken.{AuthFailed, AuthSuccess, StringToInt, TokenInfo}
-import ru.shoppinglive.chat.chat_api.ConversationSupervisor.TokenCmd
+import ru.shoppinglive.chat.chat_api.Cmd.TokenCmd
 import ru.shoppinglive.chat.domain.Crm
 
-import scala.util.{Failure, Success}
+import scala.util.Success
 
 /**
   * Created by rkhabibullin on 13.12.2016.
@@ -33,12 +33,12 @@ class CrmToken(val usersDb: Agent[Seq[Crm.User]]) extends Actor with ActorLoggin
         case HttpResponse(StatusCodes.OK, _, entity,_) =>
           Unmarshal(entity).to[String]
       } map {
-        import org.json4s.native.Serialization.read
         import org.json4s.DefaultFormats
+        import org.json4s.native.Serialization.read
         implicit val formats = DefaultFormats + StringToInt
         read[TokenInfo]
       } onComplete{
-        case Success(ti:TokenInfo) =>
+        case Success(ti:TokenInfo) => println(ti)
           usersDb().find(_.crmId==ti.id).map(AuthSuccess) match {
             case Some(a) => originalSender ! a
             case None => originalSender ! AuthFailed
@@ -52,7 +52,7 @@ class CrmToken(val usersDb: Agent[Seq[Crm.User]]) extends Actor with ActorLoggin
 object CrmToken {
   def props(usersDb: Agent[Seq[Crm.User]]) = Props(new CrmToken(usersDb))
 
-  case class TokenInfo(id:Int, login:String, name:String, last_name:String, role:String)
+  case class TokenInfo(id:Int, valid:Long)
   case class AuthSuccess(user:Crm.User)
   case object AuthFailed
 
