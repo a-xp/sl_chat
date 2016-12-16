@@ -36,39 +36,39 @@ class CrmActor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.Gro
   override def persistenceId = "crm-data"
 
   val receiveRecover: Receive = {
-    case cmd:Cmd => processCmd(self)(cmd)
+    case cmd:Cmd => processCmd(cmd)
   }
 
   val receiveCommand: Receive = LoggingReceive {
-    case cmd:Cmd =>  persist(cmd){processCmd(sender)}
+    case cmd:Cmd =>  persist(cmd){ sender ! processCmd(_)}
     case GetGroups => sender ! api.getGroups
     case GetUsers => sender ! api.getUsers
     case GetUser(id) => sender ! api.getUser(id).getOrElse(ResultFail)
     case GetGroup(id) => sender ! api.getGroup(id).getOrElse(ResultFail)
   }
 
-  def processCmd(sender:ActorRef)(cmd:Cmd) = {
+  def processCmd(cmd:Cmd):Any = {
     cmd match {
       case GroupAdd(name) => api.addGroup(name) match {
         case Some(grp) => groupDb.send(api.getGroups)
-          sender ! grp
-        case _ => sender ! ResultFail
+          grp
+        case _ => ResultFail
       }
       case UserAdd(name, lastName, id, role, login) => api.addUser(name, lastName, id, role, login) match {
         case Some(u) => usersDb.send(api.getUsers)
-          sender ! u
-        case _ => sender ! ResultFail
+           u
+        case _ => ResultFail
       }
-      case UserSetRole(id, role) =>
+      case UserSetRole(id, role) => ResultFail
       case UserAddGroup(user, group) => api.addUserToGroup(user, group) match {
         case Some(u) => usersDb.send(api.getUsers)
-          sender ! u
-        case _ => sender ! ResultFail
+          u
+        case _ => ResultFail
       }
       case UserRemoveGroup(user, group) => api.removeUserFromGroup(user, group) match {
         case Some(u) => usersDb.send(api.getUsers)
-          sender ! u
-        case _ => sender ! ResultFail
+          u
+        case _ => ResultFail
       }
     }
   }

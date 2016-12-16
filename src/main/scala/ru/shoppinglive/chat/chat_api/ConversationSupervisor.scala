@@ -2,7 +2,10 @@ package ru.shoppinglive.chat.chat_api
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.agent.Agent
+import akka.contrib.persistence.mongodb.{MongoReadJournal, ScalaDslMongoReadJournal}
 import akka.event.LoggingReceive
+import akka.persistence.query.PersistenceQuery
+import akka.stream.ActorMaterializer
 import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.domain.{Crm, DialogList}
 
@@ -17,6 +20,10 @@ class ConversationSupervisor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Age
   private val clients = mutable.Map.empty[Int, Seq[ActorRef]]
   private val conversations = mutable.Map.empty[Int, ActorRef]
   val api = new DialogList
+
+  implicit val materializer = ActorMaterializer()
+  val readJournal = PersistenceQuery(context.system).readJournalFor[ScalaDslMongoReadJournal](MongoReadJournal.Identifier)
+  readJournal.allPersistenceIds().runForeach(println(_))
 
   override def receive: Receive = LoggingReceive {
     case athcmd @ AuthenticatedCmd(from, cmd, replyTo) => cmd match {

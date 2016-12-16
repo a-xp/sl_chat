@@ -10,12 +10,20 @@ object Dialog{
 
 class Dialog(val id:Int) {
   import Dialog._
-  var state = List.empty[Msg]
+
+  private var newFor = Set.empty[Int]
+  private var state = List.empty[Msg]
 
   def newMsg(msg:Msg):Unit = {
-     state = msg :: state
+    state = msg :: state
+    newFor += msg.from
   }
-  def read(from:Int, to:Int):List[Msg] = state.slice(from, from+to)
+  def read(who:Int, from:Int, to:Int):List[Msg] = {
+    newFor -= who
+    state.slice(from, from+to)
+  }
+  def consume(who:Int):Unit = newFor -= who
+  def hasNew(who:Int):Boolean = newFor.contains(who)
 
-  def total = state.size
+  def total:Int = state.size
 }

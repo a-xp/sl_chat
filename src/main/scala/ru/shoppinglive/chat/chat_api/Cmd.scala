@@ -12,7 +12,7 @@ object Cmd {
   case class FindOrCreateDlgCmd(withWhom:Int) extends Cmd
   case class ReadCmd(dlgId: Int, from:Int=0, to:Int=5) extends Cmd
   case class TypingCmd(dlgId: Int) extends Cmd
-  case class MsgCmd(dlgId:Int, msg:String, time:Long=0) extends Cmd
+  case class MsgCmd(dlgId:Int, msg:String) extends Cmd
   case class ConnectedCmd() extends Cmd
   case class DisconnectedCmd() extends Cmd
 }
