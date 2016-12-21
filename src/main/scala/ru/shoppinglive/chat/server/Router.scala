@@ -1,34 +1,35 @@
 package ru.shoppinglive.chat.server
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives.{complete, extract, get, path, pathEnd, pathPrefix, post, put}
-import akka.http.scaladsl.server.PathMatchers.IntNumber
+import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
-import org.json4s.native.Serialization.read
 import ru.shoppinglive.chat.admin_api.CrmActor
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor
 import ru.shoppinglive.chat.domain.Crm
 import ru.shoppinglive.chat.domain.Crm.RoleSerializer
 import scaldi.{Injectable, Injector}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Created by rkhabibullin on 20.12.2016.
   */
 class Router(implicit inj:Injector) extends Injectable{
 
-  import org.json4s.native.Serialization.{write,read}
-  import scala.concurrent.duration._
-  import ch.megard.akka.http.cors.CorsDirectives._
   import akka.http.scaladsl.server.Directives._
+  import ch.megard.akka.http.cors.CorsDirectives._
+  import org.json4s.native.Serialization.{read, write}
+
+  import scala.concurrent.duration._
   implicit private val formats = org.json4s.DefaultFormats + RoleSerializer
   implicit private val timeout = Timeout(50.milliseconds)
+  implicit private val ec = inject [ExecutionContext]
+  implicit private val mat = inject [Materializer]
 
   def handler = cors() {
     pathPrefix("admin") {

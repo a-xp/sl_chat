@@ -47,14 +47,14 @@ class Connection(implicit inj:Injector) extends Actor with ActorLogging with Inj
   def listening:Receive = LoggingReceive {
     case result: Result => out.get ! result
     case cmd: Cmd => cmd match {
-      case GetContacts => inject [ActorRef] ('chatList) ! AuthenticatedCmd(clientId, GetContacts, self)
-      case _ => inject [ActorRef] ('chat) ! AuthenticatedCmd(clientId, cmd, self)
+      case MsgCmd(_,_) | ReadCmd(_,_,_) => inject [ActorRef] ('chat) ! AuthenticatedCmd(clientId, cmd, self)
+      case _ => inject [ActorRef] ('chatList) ! AuthenticatedCmd(clientId, cmd, self)
     }
   }
 }
 
 object Connection {
-  def props = Props(new Connection)
+  def props(implicit inj:Injector) = Props(new Connection)
 
   case object SenderRdy
   case object RecieverRdy

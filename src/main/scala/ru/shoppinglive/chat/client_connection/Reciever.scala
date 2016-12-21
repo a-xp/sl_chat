@@ -34,8 +34,7 @@ class Reciever(val master:ActorRef) extends ActorSubscriber with ActorLogging {
   def tmToCmd(tm:TextMessage):Option[Cmd] = {
     import org.json4s.ShortTypeHints
     import org.json4s.native.Serialization.read
-    import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
-    implicit val formats = Serialization.formats(ShortTypeHints(List(classOf[CreateDlgCmd], classOf[TokenCmd],
+    implicit val formats = Serialization.formats(ShortTypeHints(List(classOf[GetContacts], classOf[TokenCmd],
       classOf[BroadcastCmd], classOf[ReadCmd], classOf[MsgCmd], classOf[TypingCmd], classOf[FindOrCreateDlgCmd])))
     Try{read[Cmd](tm.getStrictText)}.toOption
   }

@@ -52,7 +52,7 @@ class CrmToken(implicit inj:Injector) extends Actor with ActorLogging with Injec
 }
 
 object CrmToken {
-  def props = Props(new CrmToken)
+  def props(implicit inj:Injector) = Props(new CrmToken)
 
   case class TokenInfo(id:Int, valid:Long)
   case class AuthSuccess(user:Crm.User)

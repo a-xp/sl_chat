@@ -27,7 +27,7 @@ object CrmActor {
   case object ResultOK
   case object ResultFail
 
-  def props = Props(new CrmActor)
+  def props(implicit inj:Injector) = Props(new CrmActor)
 }
 
 class CrmActor(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{

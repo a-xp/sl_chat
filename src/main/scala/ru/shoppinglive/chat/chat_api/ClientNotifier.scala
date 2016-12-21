@@ -21,6 +21,7 @@ class ClientNotifier(implicit inj:Injector) extends Actor with ActorLogging with
         users(fromUser) = replyTo :: users.getOrElse(fromUser, Nil)
       case DisconnectedCmd =>
         users(fromUser) = users(fromUser) filter(_!=replyTo)
+      case _ =>
     }
     case AddressedMsg(to, msg) =>
       users get to foreach(_ foreach(_ ! msg))
@@ -30,5 +31,5 @@ class ClientNotifier(implicit inj:Injector) extends Actor with ActorLogging with
 object ClientNotifier {
   case class AddressedMsg(to:Int, msg:Any)
 
-  def props = Props(new ClientNotifier)
+  def props(implicit inj:Injector) = Props(new ClientNotifier)
 }

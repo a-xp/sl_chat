@@ -14,7 +14,7 @@ object Cmd {
   case class MsgCmd(dlgId:Int, msg:String) extends Cmd
   case object ConnectedCmd extends Cmd
   case object DisconnectedCmd extends Cmd
-  case object GetContacts extends Cmd
+  case class GetContacts() extends Cmd
 
   case class AuthenticatedCmd(from:Int, cmd:Cmd, replyTo:ActorRef)
 }

@@ -17,7 +17,7 @@ import scaldi.{Injectable, Injector}
 
 object Conversation {
 
-  def props(id:Int, users:Set[Int]) = Props(new Conversation(id, users))
+  def props(id:Int, users:Set[Int])(implicit inj:Injector) = Props(new Conversation(id, users))
 }
 
 class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
@@ -41,6 +41,7 @@ class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends Persis
           e => api.newMsg(Dialog.Msg(e.msg, e.time, e.from))
           inject [ActorRef] ('chatList) ! e
         }
+      case _ =>
     }
   }
 

@@ -19,19 +19,20 @@ class ConversationSupervisor(implicit inj:Injector)  extends Actor with ActorLog
 
   override def receive: Receive = LoggingReceive {
     case athcmd @ AuthenticatedCmd(from, cmd, replyTo) => cmd match {
-      case ReadCmd(dlgId,_,_) => sendCmd(dlgId, cmd)
-      case MsgCmd(dlgId,_) => sendCmd(dlgId, cmd)
+      case ReadCmd(dlgId,_,_) => sendCmd(dlgId, athcmd)
+      case MsgCmd(dlgId,_) => sendCmd(dlgId, athcmd)
+      case _ =>
     }
     case DialogInfo(id, users) => dlgUsers(id) = users
   }
 
   private def sendCmd(dlgId:Int, cmd:Any) = {
-    dlgActors.getOrElseUpdate(dlgId, context.system.actorOf(Conversation.props(dlgId, dlgUsers(dlgId)))) ! cmd
+    dlgActors.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId, dlgUsers(dlgId)), "dlg-"+dlgId)) ! cmd
   }
 }
 
 object ConversationSupervisor{
   case class DialogInfo(id:Int, users:Set[Int])
 
-  def props = Props(new ConversationSupervisor)
+  def props(implicit inj:Injector) = Props(new ConversationSupervisor)
 }

@@ -8,9 +8,9 @@ import ru.shoppinglive.chat.chat_api.ClientNotifier.AddressedMsg
 import ru.shoppinglive.chat.chat_api.Cmd._
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor.DialogInfo
 import ru.shoppinglive.chat.chat_api.Event.{DialogCreated, MsgConsumed, MsgPosted}
-import ru.shoppinglive.chat.chat_api.Result.{ContactInfo, GroupInfo, GroupsResult, TypingNotification}
+import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.domain.Crm.Admin
-import ru.shoppinglive.chat.domain.{Crm, DialogList}
+import ru.shoppinglive.chat.domain.{Crm, Dialog, DialogList}
 import scaldi.{Injectable, Injector}
 
 
@@ -31,15 +31,15 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
 
   override def receiveCommand: Receive = LoggingReceive {
     case AuthenticatedCmd(fromUser, cmd, replyTo) => cmd match {
-      case GetContacts => val user = usersDb()(fromUser)
-        replyTo ! extendContactsList(user, api.listForUser(fromUser), usersDb())
+      case GetContacts() => val user = getUser(fromUser)
+        replyTo ! ContactsResult(extendContactsList(user, api.listForUser(fromUser), usersDb()))
         if(user.role==Admin){
           replyTo ! getGroupsList(groupsDb())
         }
-      case FindOrCreateDlgCmd(withWhom) => val users = Set(fromUser, withWhom)
+      case FindOrCreateDlgCmd(withWhom) if fromUser!=withWhom => val users = Set(fromUser, withWhom)
         val id = findDlg(users)
         inject [ActorRef] ('chat) ! DialogInfo(id, users)
-        replyTo ! Result.extendContact(api.getUserView(id, fromUser), usersDb()(withWhom))
+        replyTo ! ContactUpdate(Result.extendContact(api.getUserView(id, fromUser), getUser(withWhom)))
       case BroadcastCmd(group, msg) => usersDb().filter(_.groups.contains(group)).map(_.id).filter(_!=fromUser).foreach{
         toUser => val users = Set(toUser, fromUser)
           val id = findDlg(users)
@@ -48,18 +48,20 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
       }
       case TypingCmd(dlgId) =>
         api.getOthers(dlgId, fromUser) foreach(uid => inject [ActorRef] ('notifier) ! AddressedMsg(uid, TypingNotification(dlgId, fromUser)))
+      case _ =>
     }
-    case MsgPosted(dlgId,time,from,_) => api.newMsg(dlgId, from, time)
-      api.getOthers(dlgId, from) foreach(uid => inject [ActorRef] ('notifier) ! AddressedMsg(uid, Result.extendContact(api.getUserView(dlgId, uid), usersDb()(from))))
+    case MsgPosted(dlgId,time,from,text) => api.newMsg(dlgId, from, time)
+      api.getOthers(dlgId, from) foreach(uid => inject [ActorRef] ('notifier) ! AddressedMsg(uid, ContactUpdate(Result.extendContact(api.getUserView(dlgId, uid), getUser(from)))))
+      inject [ActorRef] ('notifier) ! AddressedMsg(from, DialogNewMsg(dlgId, List(Dialog.Msg(text, time, from))))
     case MsgConsumed(dlgId,_,who) => api.acceptedMsg(dlgId, who)
       val view = api.getUserView(dlgId, who)
-      inject [ActorRef] ('notifier) ! AddressedMsg(who, Result.extendContact(view, usersDb()(view.to)))
+      inject [ActorRef] ('notifier) ! AddressedMsg(who, ContactUpdate(Result.extendContact(view, getUser(view.to))))
   }
 
   private def findDlg(users:Set[Int]):Int = {
     api.findForUsers(users) match {
       case Some(u) => u.id
-      case None => maxId+=1; persist(DialogCreated(System.currentTimeMillis(), users, maxId))
+      case None => maxId+=1; persist(DialogCreated(System.currentTimeMillis(), users, maxId)){_=>}
         api.create(maxId, users)
         maxId
     }
@@ -81,10 +83,14 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
   def getGroupsList(groups: Seq[Crm.Group]) : GroupsResult = {
     GroupsResult(groups map(grp=> GroupInfo(grp.id, grp.name)))
   }
+
+  private def getUser(id:Int): Crm.User ={
+    usersDb()(id-1)
+  }
 }
 
 
 object ConversationsList {
-  def props = Props(new ConversationsList)
+  def props(implicit inj:Injector) = Props(new ConversationsList)
 
 }
