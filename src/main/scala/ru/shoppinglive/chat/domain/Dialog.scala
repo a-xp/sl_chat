@@ -8,15 +8,14 @@ object Dialog{
 
 }
 
-class Dialog(val id:Int) {
+class Dialog(val id:Int, var users:Set[Int]) {
   import Dialog._
 
   private var newFor = Set.empty[Int]
   private var state = List.empty[Msg]
-
   def newMsg(msg:Msg):Unit = {
     state = msg :: state
-    newFor += msg.from
+    newFor = users - msg.from
   }
   def read(who:Int, from:Int, to:Int):List[Msg] = {
     newFor -= who
@@ -24,6 +23,5 @@ class Dialog(val id:Int) {
   }
   def consume(who:Int):Unit = newFor -= who
   def hasNew(who:Int):Boolean = newFor.contains(who)
-
   def total:Int = state.size
 }

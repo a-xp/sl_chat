@@ -1,6 +1,6 @@
 package ru.shoppinglive.chat.admin_api
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.agent.Agent
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
@@ -11,19 +11,21 @@ import org.json4s.JsonAST.{JInt, JString}
 import ru.shoppinglive.chat.admin_api.CrmToken.{AuthFailed, AuthSuccess, StringToInt, TokenInfo}
 import ru.shoppinglive.chat.chat_api.Cmd.TokenCmd
 import ru.shoppinglive.chat.domain.Crm
+import scaldi.{Injectable, Injector}
 
 import scala.util.Success
 
 /**
   * Created by rkhabibullin on 13.12.2016.
   */
-class CrmToken(val usersDb: Agent[Seq[Crm.User]]) extends Actor with ActorLogging{
+class CrmToken(implicit inj:Injector) extends Actor with ActorLogging with Injectable{
 
-  implicit val system = context.system
-  implicit val materializer = ActorMaterializer()
-  implicit val ec = system.dispatcher
+  implicit private val system = inject [ActorSystem]
+  implicit private val materializer = ActorMaterializer()
+  implicit private val ec = system.dispatcher
+  private val usersDb = inject [Agent[Seq[Crm.User]]] ('usersDb)
 
-  val http = Http()
+  private val http = Http()
   val crmApiUrl = "http://rkhabibullin.old.shoppinglive.ru/crm/modules/ajax/authorization/token/info?token="
 
   override def receive: Receive = {
@@ -50,7 +52,7 @@ class CrmToken(val usersDb: Agent[Seq[Crm.User]]) extends Actor with ActorLoggin
 }
 
 object CrmToken {
-  def props(usersDb: Agent[Seq[Crm.User]]) = Props(new CrmToken(usersDb))
+  def props = Props(new CrmToken)
 
   case class TokenInfo(id:Int, valid:Long)
   case class AuthSuccess(user:Crm.User)

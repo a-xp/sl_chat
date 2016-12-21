@@ -20,6 +20,7 @@ libraryDependencies ++= {
     "org.json4s" %% "json4s-native" % "3.5.0",
     "ch.megard" %% "akka-http-cors" % "0.1.10",
     "com.github.scullxbones" %% "akka-persistence-mongo-casbah" % "1.3.6",
-    "org.mongodb" %% "casbah" % "3.1.1"
+    "org.mongodb" %% "casbah" % "3.1.1",
+    "org.scaldi" %% "scaldi-akka" % "0.5.8"
   )
 }

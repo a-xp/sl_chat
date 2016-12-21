@@ -19,5 +19,5 @@ object ConnectionSupervisor {
 
   case object CreateConnection
 
-  def props = Props[ConnectionSupervisor]
+  def props = Props(new ConnectionSupervisor)
 }

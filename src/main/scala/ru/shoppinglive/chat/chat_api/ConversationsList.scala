@@ -1,21 +1,90 @@
 package ru.shoppinglive.chat.chat_api
 
-import akka.actor.{Actor, ActorRef, Props}
-import akka.actor.Actor.Receive
-import ru.shoppinglive.chat.chat_api.Cmd.{ConnectedCmd, DisconnectedCmd}
-import ru.shoppinglive.chat.chat_api.ConversationSupervisor.AuthenticatedCmd
-import ru.shoppinglive.chat.chat_api.Result.ContactsResult
+import akka.actor.{ActorLogging, ActorRef, Props}
+import akka.agent.Agent
+import akka.event.LoggingReceive
+import akka.persistence.PersistentActor
+import ru.shoppinglive.chat.chat_api.ClientNotifier.AddressedMsg
+import ru.shoppinglive.chat.chat_api.Cmd._
+import ru.shoppinglive.chat.chat_api.ConversationSupervisor.DialogInfo
+import ru.shoppinglive.chat.chat_api.Event.{DialogCreated, MsgConsumed, MsgPosted}
+import ru.shoppinglive.chat.chat_api.Result.{ContactInfo, GroupInfo, GroupsResult, TypingNotification}
+import ru.shoppinglive.chat.domain.Crm.Admin
+import ru.shoppinglive.chat.domain.{Crm, DialogList}
+import scaldi.{Injectable, Injector}
 
-import scala.collection.mutable
 
 /**
   * Created by rkhabibullin on 13.12.2016.
   */
-class ConversationsList {
+class ConversationsList(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
+  private val usersDb = inject [Agent[Seq[Crm.User]]] ('usersDb)
+  private val groupsDb = inject [Agent[Seq[Crm.Group]]] ('groupsDb)
+  private val api = new DialogList
+  private var maxId = 0
 
+  override def receiveRecover: Receive = LoggingReceive {
+    case DialogCreated(_, users, id) => api.create(id, users)
+      maxId = maxId max id
+      inject [ActorRef] ('chat) ! DialogInfo(id, users)
+  }
+
+  override def receiveCommand: Receive = LoggingReceive {
+    case AuthenticatedCmd(fromUser, cmd, replyTo) => cmd match {
+      case GetContacts => val user = usersDb()(fromUser)
+        replyTo ! extendContactsList(user, api.listForUser(fromUser), usersDb())
+        if(user.role==Admin){
+          replyTo ! getGroupsList(groupsDb())
+        }
+      case FindOrCreateDlgCmd(withWhom) => val users = Set(fromUser, withWhom)
+        val id = findDlg(users)
+        inject [ActorRef] ('chat) ! DialogInfo(id, users)
+        replyTo ! Result.extendContact(api.getUserView(id, fromUser), usersDb()(withWhom))
+      case BroadcastCmd(group, msg) => usersDb().filter(_.groups.contains(group)).map(_.id).filter(_!=fromUser).foreach{
+        toUser => val users = Set(toUser, fromUser)
+          val id = findDlg(users)
+          inject [ActorRef] ('chat) ! DialogInfo(id, users)
+          inject [ActorRef] ('chat) ! AuthenticatedCmd(fromUser, MsgCmd(id, msg), replyTo)
+      }
+      case TypingCmd(dlgId) =>
+        api.getOthers(dlgId, fromUser) foreach(uid => inject [ActorRef] ('notifier) ! AddressedMsg(uid, TypingNotification(dlgId, fromUser)))
+    }
+    case MsgPosted(dlgId,time,from,_) => api.newMsg(dlgId, from, time)
+      api.getOthers(dlgId, from) foreach(uid => inject [ActorRef] ('notifier) ! AddressedMsg(uid, Result.extendContact(api.getUserView(dlgId, uid), usersDb()(from))))
+    case MsgConsumed(dlgId,_,who) => api.acceptedMsg(dlgId, who)
+      val view = api.getUserView(dlgId, who)
+      inject [ActorRef] ('notifier) ! AddressedMsg(who, Result.extendContact(view, usersDb()(view.to)))
+  }
+
+  private def findDlg(users:Set[Int]):Int = {
+    api.findForUsers(users) match {
+      case Some(u) => u.id
+      case None => maxId+=1; persist(DialogCreated(System.currentTimeMillis(), users, maxId))
+        api.create(maxId, users)
+        maxId
+    }
+  }
+
+  override def persistenceId: String = "dlg-list"
+
+  def extendContactsList(user:Crm.User, dialogs: Seq[DialogList.DialogUserView], users: Seq[Crm.User]): Seq[ContactInfo] ={
+    (if(user.role==Crm.Admin){
+      users
+    } else{
+      users filter (_.role == Crm.Admin)
+    }) map { other => dialogs.find(_.to==other.id).map(dlg =>
+      ContactInfo(dlg.id, dlg.to, other.login, dlg.hasNew, dlg.lastMsgTime)).getOrElse(
+      ContactInfo(0, other.id, other.login, false, 0)
+    )}
+  }
+
+  def getGroupsList(groups: Seq[Crm.Group]) : GroupsResult = {
+    GroupsResult(groups map(grp=> GroupInfo(grp.id, grp.name)))
+  }
 }
 
 
 object ConversationsList {
+  def props = Props(new ConversationsList)
 
 }

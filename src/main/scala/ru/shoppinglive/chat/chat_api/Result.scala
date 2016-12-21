@@ -1,6 +1,6 @@
 package ru.shoppinglive.chat.chat_api
 
-import ru.shoppinglive.chat.domain.Dialog
+import ru.shoppinglive.chat.domain.{Crm, Dialog, DialogList}
 
 /**
   * Created by rkhabibullin on 14.12.2016.
@@ -20,4 +20,10 @@ object Result {
   case class DialogNewMsg(dlgId:Int, msg:Seq[Dialog.Msg]) extends Result
   case class DialogMsgList(dlgId:Int, msg:Seq[Dialog.Msg], total:Int, from:Int, to:Int) extends Result
   case class TypingNotification(dlgId:Int, who:Int) extends Result
+
+
+  def extendContact(dlg: DialogList.DialogUserView, user:Crm.User):ContactInfo = {
+    ContactInfo(dlg.id, dlg.to, user.login, dlg.hasNew, dlg.lastMsgTime)
+  }
+
 }

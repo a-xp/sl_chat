@@ -1,6 +1,6 @@
 package ru.shoppinglive.chat.chat_api
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
 import akka.persistence.PersistentActor
 import ru.shoppinglive.chat.chat_api.Cmd._
@@ -8,6 +8,7 @@ import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
 import ru.shoppinglive.chat.chat_api.Event.{DialogCreated, MsgConsumed, MsgPosted}
 import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.domain.Dialog
+import scaldi.{Injectable, Injector}
 
 
 /**
@@ -16,38 +17,32 @@ import ru.shoppinglive.chat.domain.Dialog
 
 object Conversation {
 
-  def props(id:Int) = Props(new Conversation(id))
+  def props(id:Int, users:Set[Int]) = Props(new Conversation(id, users))
 }
 
-class Conversation(id:Int) extends PersistentActor with ActorLogging{
-  val api = new Dialog(id)
-  var lastEvent = 0
+class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
+  val api = new Dialog(id, users)
 
   override def receiveRecover: Receive = LoggingReceive {
-    case MsgPosted(_,_,time,fromUser,text) =>
-      val msg = Dialog.Msg(text, time, fromUser)
-      api.newMsg(msg)
-    case MsgConsumed(_,_,_,fromUser) => api.consume(fromUser)
+    case MsgPosted(_,time,fromUser,text) => api.newMsg(Dialog.Msg(text, time, fromUser))
+    case MsgConsumed(_,_,fromUser) => api.consume(fromUser)
   }
 
   override def receiveCommand: Receive = LoggingReceive {
     case AuthenticatedCmd(fromUser, cmd, replyTo) => cmd match {
       case ReadCmd(_, from, to) => if(api.hasNew(fromUser)){
-        lastEvent+=1
-        persist(MsgConsumed(lastEvent, id, System.currentTimeMillis(), fromUser)){context.parent ! _}
+        persist(MsgConsumed(id, System.currentTimeMillis(), fromUser)){e =>
+          inject [ActorRef] ('chatList) ! e
+        }
       }
       replyTo ! DialogMsgList(id, api.read(fromUser, from, to), api.total, from, to)
       case MsgCmd(_, text) =>
-        lastEvent+=1
-        persist(MsgPosted(lastEvent, id, System.currentTimeMillis(), fromUser, text)){
-          e => val msg = Dialog.Msg(e.msg, e.time, e.from)
-          api.newMsg(msg)
-          context.parent ! e
+        persist(MsgPosted(id, System.currentTimeMillis(), fromUser, text)){
+          e => api.newMsg(Dialog.Msg(e.msg, e.time, e.from))
+          inject [ActorRef] ('chatList) ! e
         }
-      case _ =>
     }
   }
 
   override def persistenceId:String = "dlg-"+id
-
 }

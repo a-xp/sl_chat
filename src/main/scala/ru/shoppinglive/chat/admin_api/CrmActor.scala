@@ -6,6 +6,7 @@ import akka.event.LoggingReceive
 import akka.persistence.PersistentActor
 import ru.shoppinglive.chat.domain.Crm
 import ru.shoppinglive.chat.domain.Crm._
+import scaldi.{Injectable, Injector}
 /**
   * Created by rkhabibullin on 13.12.2016.
   */
@@ -26,11 +27,13 @@ object CrmActor {
   case object ResultOK
   case object ResultFail
 
-  def props(usersDb: Agent[Seq[Crm.User]], groupDb: Agent[Seq[Crm.Group]]) = Props(new CrmActor(usersDb, groupDb))
+  def props = Props(new CrmActor)
 }
 
-class CrmActor(val usersDb: Agent[Seq[Crm.User]], val groupDb: Agent[Seq[Crm.Group]]) extends PersistentActor with ActorLogging{
-  var api = new Crm
+class CrmActor(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
+  private var api = new Crm
+  private val usersDb = inject [Agent[Seq[Crm.User]]] ('usersDb)
+  private val groupDb = inject [Agent[Seq[Crm.Group]]] ('groupsDb)
   import CrmActor._
 
   override def persistenceId = "crm-data"

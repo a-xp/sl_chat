@@ -1,4 +1,7 @@
 package ru.shoppinglive.chat.domain
+
+import scala.collection.mutable
+
 /**
   * Created by rkhabibullin on 09.12.2016.
   */
@@ -10,47 +13,42 @@ object DialogList {
 class DialogList {
   import DialogList._
 
-  var list = Vector.empty[DialogList.Dialog]
+  private var dialogs = mutable.Map.empty[Int, DialogList.Dialog]
 
-  def create(users:Set[Int]):DialogList.Dialog = {
-    val dlg = Dialog(list.size+1, users, Set.empty[Int], 0)
-    list = list :+ dlg
-    dlg
+  def create(id:Int, users:Set[Int]):Unit = {
+    val dlg = Dialog(id, users, Set.empty[Int], 0)
+    dialogs(id) = dlg
   }
 
   def findForUsers(ids:Set[Int]):Option[DialogList.Dialog] = {
-    list.find(_.users==ids)
-  }
-
-  def findOrCreate(ids:Set[Int]):DialogList.Dialog = {
-    findForUsers(ids).getOrElse(create(ids))
+    dialogs.values find(_.users==ids)
   }
 
   def newMsg(id:Int, from:Int, time:Long):Unit = {
-    val dlg = list(id-1)
-    list = list.updated(id-1, dlg.copy(newFor = dlg.users-from, lastMsgTime = time))
+    val dlg = dialogs(id)
+    dialogs(id) =  dlg.copy(newFor = dlg.users-from, lastMsgTime = time)
   }
 
   def getUserView(dlgId:Int, userId:Int):DialogUserView = {
-    val dlg = list(dlgId-1)
+    val dlg = dialogs(dlgId)
     DialogUserView(dlg.id, dlg.users.find(_ != userId).get, dlg.newFor.contains(userId), dlg.lastMsgTime)
   }
 
   def listForUser(id:Int): Seq[DialogUserView] = {
-    list.filter(_.users contains id).map(dlg => DialogUserView(dlg.id, dlg.users.find(_!=id).get, dlg.newFor.contains(id), dlg.lastMsgTime))
+    dialogs.values.filter(_.users contains id).map(dlg => DialogUserView(dlg.id, dlg.users.find(_!=id).get, dlg.newFor.contains(id), dlg.lastMsgTime)).toSeq
   }
 
   def acceptedMsg(dlgId:Int, user:Int):Unit = {
-    val dlg = list(dlgId-1)
-    list = list.updated(dlgId-1, dlg.copy(newFor = dlg.newFor - user))
+    val dlg = dialogs(dlgId)
+    dialogs(dlgId) = dlg.copy(newFor = dlg.newFor - user)
   }
 
   def get(id:Int):DialogList.Dialog = {
-    list(id-1)
+    dialogs(id)
   }
 
   def getOthers(dlgId:Int, userId:Int):Set[Int] = {
-    list(dlgId-1).users.filter(_!=userId)
+    dialogs(dlgId).users.filter(_!=userId)
   }
 
 }
