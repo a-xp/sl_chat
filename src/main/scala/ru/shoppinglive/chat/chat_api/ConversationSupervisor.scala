@@ -3,7 +3,7 @@ package ru.shoppinglive.chat.chat_api
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.event.LoggingReceive
 import akka.stream.ActorMaterializer
-import ru.shoppinglive.chat.chat_api.ConversationSupervisor.DialogInfo
+import ru.shoppinglive.chat.chat_api.ConversationSupervisor.{DialogInfo, ResetDialog}
 import scaldi.{Injectable, Injector}
 
 import scala.collection.mutable
@@ -24,6 +24,7 @@ class ConversationSupervisor(implicit inj:Injector)  extends Actor with ActorLog
       case _ =>
     }
     case DialogInfo(id, users) => dlgUsers(id) = users
+    case cmd @ ResetDialog(id) => sendCmd(id, cmd)
   }
 
   private def sendCmd(dlgId:Int, cmd:Any) = {
@@ -33,6 +34,7 @@ class ConversationSupervisor(implicit inj:Injector)  extends Actor with ActorLog
 
 object ConversationSupervisor{
   case class DialogInfo(id:Int, users:Set[Int])
+  case class ResetDialog(id:Int)
 
   def props(implicit inj:Injector) = Props(new ConversationSupervisor)
 }

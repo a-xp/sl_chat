@@ -51,4 +51,5 @@ class DialogList {
     dialogs(dlgId).users.filter(_!=userId)
   }
 
+  def list:Iterable[DialogList.Dialog] = dialogs.values
 }

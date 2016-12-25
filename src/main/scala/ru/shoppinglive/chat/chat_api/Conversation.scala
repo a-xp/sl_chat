@@ -1,6 +1,6 @@
 package ru.shoppinglive.chat.chat_api
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.event.LoggingReceive
 import akka.persistence.PersistentActor
 import ru.shoppinglive.chat.chat_api.Cmd._
@@ -43,6 +43,8 @@ class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends Persis
         }
       case _ =>
     }
+    case ResetDialog(_) => deleteMessages(Long.MaxValue)
+      self ! PoisonPill
   }
 
   override def persistenceId:String = "dlg-"+id

@@ -27,7 +27,7 @@ class Router(implicit inj:Injector) extends Injectable{
 
   import scala.concurrent.duration._
   implicit private val formats = org.json4s.DefaultFormats + RoleSerializer
-  implicit private val timeout = Timeout(50.milliseconds)
+  implicit private val timeout = Timeout(1.second)
   implicit private val ec = inject [ExecutionContext]
   implicit private val mat = inject [Materializer]
 
@@ -84,8 +84,18 @@ class Router(implicit inj:Injector) extends Injectable{
             case _ => HttpResponse(StatusCodes.BadRequest)
           })
         }
+      } ~ path("reset") {
+        post {
+          complete(pattern.ask(inject [ActorRef] ('crm), CrmActor.ResetData) map {
+            case true => HttpResponse(StatusCodes.OK)
+          } recover {
+            case _ => HttpResponse(StatusCodes.InternalServerError)
+          })
+        } ~ {
+          complete(HttpResponse(StatusCodes.AlreadyReported))
+        }
       }
-    } ~ path("chat"){
+     } ~ path("chat"){
       extract(_.request) {
         req => complete(wsHandler(req))
       }

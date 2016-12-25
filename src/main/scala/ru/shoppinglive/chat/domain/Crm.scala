@@ -75,6 +75,10 @@ class Crm {
       None
     }
   }
+  def reset():Unit = {
+    groups = Vector.empty[Group]
+    users = Vector.empty[User]
+  }
 
   def getGroups = groups
   def getUsers = users

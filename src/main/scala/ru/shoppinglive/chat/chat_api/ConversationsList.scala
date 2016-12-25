@@ -3,10 +3,11 @@ package ru.shoppinglive.chat.chat_api
 import akka.actor.{ActorLogging, ActorRef, Props}
 import akka.agent.Agent
 import akka.event.LoggingReceive
-import akka.persistence.PersistentActor
+import akka.persistence.{Persistence, PersistentActor}
 import ru.shoppinglive.chat.chat_api.ClientNotifier.AddressedMsg
 import ru.shoppinglive.chat.chat_api.Cmd._
-import ru.shoppinglive.chat.chat_api.ConversationSupervisor.DialogInfo
+import ru.shoppinglive.chat.chat_api.ConversationSupervisor.{DialogInfo, ResetDialog}
+import ru.shoppinglive.chat.chat_api.ConversationsList.ResetData
 import ru.shoppinglive.chat.chat_api.Event.{DialogCreated, MsgConsumed, MsgPosted}
 import ru.shoppinglive.chat.chat_api.Result._
 import ru.shoppinglive.chat.domain.Crm.Admin
@@ -56,6 +57,8 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
     case MsgConsumed(dlgId,_,who) => api.acceptedMsg(dlgId, who)
       val view = api.getUserView(dlgId, who)
       inject [ActorRef] ('notifier) ! AddressedMsg(who, ContactUpdate(Result.extendContact(view, getUser(view.to))))
+    case ResetData => deleteMessages(Long.MaxValue)
+      api.list foreach(dlg => inject [ActorRef] ('chat) ! ResetDialog(dlg.id))
   }
 
   private def findDlg(users:Set[Int]):Int = {
@@ -74,7 +77,7 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
       users
     } else{
       users filter (_.role == Crm.Admin)
-    }) map { other => dialogs.find(_.to==other.id).map(dlg =>
+    }) filter(_.id!=user.id) map { other => dialogs.find(_.to==other.id).map(dlg =>
       ContactInfo(dlg.id, dlg.to, other.login, dlg.hasNew, dlg.lastMsgTime)).getOrElse(
       ContactInfo(0, other.id, other.login, false, 0)
     )}
@@ -93,4 +96,5 @@ class ConversationsList(implicit inj:Injector) extends PersistentActor with Acto
 object ConversationsList {
   def props(implicit inj:Injector) = Props(new ConversationsList)
 
+  case object ResetData
 }
