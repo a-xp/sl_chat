@@ -17,7 +17,7 @@ class MockCrmToken(implicit inj:Injector) extends Actor with ActorLogging with I
   private val usersDb = inject [Agent[Seq[Crm.User]]] ('usersDb)
 
   override def receive: Receive = LoggingReceive {
-    case TokenCmd(token) => println(usersDb())
+    case TokenCmd(token) =>
       usersDb() find (_.crmId==token.toInt) match {
         case Some(u) => sender ! AuthSuccess(u)
         case None => sender ! AuthFailed

@@ -40,7 +40,7 @@ class CrmToken(implicit inj:Injector) extends Actor with ActorLogging with Injec
         implicit val formats = DefaultFormats + StringToInt
         read[TokenInfo]
       } onComplete{
-        case Success(ti:TokenInfo) => println(ti)
+        case Success(ti:TokenInfo) =>
           usersDb().find(_.crmId==ti.id).map(AuthSuccess) match {
             case Some(a) => originalSender ! a
             case None => originalSender ! AuthFailed

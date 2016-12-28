@@ -8,6 +8,7 @@ import akka.event.Logging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.stream.{ActorMaterializer, Materializer}
+import kamon.Kamon
 import ru.shoppinglive.chat.admin_api.{CrmActor, CrmToken, MockCrmToken}
 import ru.shoppinglive.chat.chat_api.{ClientNotifier, ConversationSupervisor, ConversationsList}
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor
@@ -22,8 +23,7 @@ import scala.io.StdIn
   * Created by rkhabibullin on 06.12.2016.
   */
 object WebServer extends App with Injectable{
-  Logger.getLogger("org.mongodb.driver.protocol.query").setLevel(Level.SEVERE)
-  Logger.getLogger("org.mongodb.driver.cluster").setLevel(Level.SEVERE)
+  Kamon.start()
 
   implicit private var container = new Module {
     bind [ActorSystem] toNonLazy ActorSystem("main") destroyWith (_.terminate())
@@ -54,6 +54,6 @@ object WebServer extends App with Injectable{
   println(s"Listening for connections on port $port...")
 
   StdIn.readLine()
-  binding.flatMap(_.unbind()).onComplete(_=>system.terminate())
+  binding.flatMap(_.unbind()).onComplete(_ => {system.terminate(); Kamon.shutdown()})
 
 }

@@ -31,16 +31,16 @@ class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends Persis
   override def receiveCommand: Receive = LoggingReceive {
     case AuthenticatedCmd(fromUser, cmd, replyTo) => cmd match {
       case ReadCmd(_, from, to) => if(api.hasNew(fromUser)){
-        persist(MsgConsumed(id, System.currentTimeMillis(), fromUser)){e =>
-          inject [ActorRef] ('chatList) ! e
-        }
+        val msg = MsgConsumed(id, System.currentTimeMillis(), fromUser)
+        persist(msg){e => }
+        inject [ActorRef] ('chatList) ! msg
       }
       replyTo ! DialogMsgList(id, api.read(fromUser, from, to), api.total, from, to)
       case MsgCmd(_, text) =>
-        persist(MsgPosted(id, System.currentTimeMillis(), fromUser, text)){
-          e => api.newMsg(Dialog.Msg(e.msg, e.time, e.from))
-          inject [ActorRef] ('chatList) ! e
-        }
+        val msg = MsgPosted(id, System.currentTimeMillis(), fromUser, text)
+        persist(msg){ e =>  }
+        api.newMsg(Dialog.Msg(msg.msg, msg.time, msg.from))
+        inject [ActorRef] ('chatList) ! msg
       case _ =>
     }
     case ResetDialog(_) => deleteMessages(Long.MaxValue)
