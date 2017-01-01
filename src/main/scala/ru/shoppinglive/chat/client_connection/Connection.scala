@@ -1,6 +1,6 @@
 package ru.shoppinglive.chat.client_connection
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props, Terminated}
 import akka.event.LoggingReceive
 import akka.http.scaladsl.model.ws.Message
 import akka.stream.scaladsl.{Sink, Source}
@@ -45,6 +45,8 @@ class Connection(implicit inj:Injector) extends Actor with ActorLogging with Inj
   }
 
   def listening:Receive = LoggingReceive {
+    case Terminated(_) => inject [ActorRef] ('notifier) ! AuthenticatedCmd(clientId, DisconnectedCmd, self)
+      self ! PoisonPill
     case result: Result => out.get ! result
     case cmd: Cmd => cmd match {
       case MsgCmd(_,_) | ReadCmd(_,_,_) | ReadNewCmd(_) => inject [ActorRef] ('dialogs) ! AuthenticatedCmd(clientId, cmd, self)

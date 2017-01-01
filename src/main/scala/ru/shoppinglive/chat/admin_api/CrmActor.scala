@@ -48,11 +48,7 @@ class CrmActor(implicit inj:Injector) extends PersistentActor with ActorLogging 
     case GetUsers => sender ! api.getUsers
     case GetUser(id) => sender ! api.getUser(id).getOrElse(ResultFail)
     case GetGroup(id) => sender ! api.getGroup(id).getOrElse(ResultFail)
-    case "reset" => deleteMessages(Long.MaxValue)
-      api.reset()
-      usersDb.send(api.getUsers)
-      groupDb.send(api.getGroups)
-      sender ! true
+    case "reset" => throw new Exception("reset crm")
   }
 
   def processCmd(cmd:Cmd):Any = {

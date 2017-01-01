@@ -27,7 +27,7 @@ class ConversationSupervisor(implicit inj:Injector)  extends Actor with ActorLog
       case ReadNewCmd(dlgId) => sendCmd(dlgId, athcmd)
       case _ =>
     }
-    case "reset" => dlgDb().values foreach(dlg=>sendCmd(dlg.id, "reset"))
+    case "reset" => throw new Exception("reset conversation supervisor")
   }
 
   private def sendCmd(dlgId:Int, cmd:Any) = {

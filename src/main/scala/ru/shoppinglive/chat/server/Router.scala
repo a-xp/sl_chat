@@ -8,6 +8,7 @@ import akka.pattern
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
+import com.mongodb.casbah.Imports.MongoClient
 import ru.shoppinglive.chat.admin_api.CrmActor
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor
 import ru.shoppinglive.chat.domain.Crm
@@ -27,7 +28,7 @@ class Router(implicit inj:Injector) extends Injectable{
 
   import scala.concurrent.duration._
   implicit private val formats = org.json4s.DefaultFormats + RoleSerializer
-  implicit private val timeout = Timeout(1.second)
+  implicit private val timeout = Timeout(5.second)
   implicit private val ec = inject [ExecutionContext]
   implicit private val mat = inject [Materializer]
 
@@ -86,12 +87,13 @@ class Router(implicit inj:Injector) extends Injectable{
         }
       } ~ path("reset") {
         post {
-          complete(
-            for(_ <- pattern.ask(inject [ActorRef] ('crm), "reset");
-                _ <- pattern.ask(inject [ActorRef] ('contacts), "reset");
-                _ <- pattern.ask(inject [ActorRef] ('dialogs), "reset")
-            ) yield HttpResponse(StatusCodes.OK)
-           )
+          complete{
+              clearDb()
+              inject[ActorRef]('crm) ! "reset"
+              inject[ActorRef]('contacts) ! "reset"
+              inject[ActorRef]('dialogs) ! "reset"
+              HttpResponse(StatusCodes.OK)
+          }
         } ~ {
           complete(HttpResponse(StatusCodes.AlreadyReported))
         }
@@ -121,5 +123,18 @@ class Router(implicit inj:Injector) extends Injectable{
       r.discardEntityBytes()
       Future.successful(HttpResponse(StatusCodes.BadRequest))
   }
+
+  private def clearDb():Unit = {
+    import com.mongodb.casbah.Imports._
+    val jUri = MongoClientURI(inject [String]("casbah-journal.mongo-url"))
+    val jConn = MongoClient(jUri)
+    val jDb = jConn(jUri.database.get)
+    jDb.dropDatabase()
+    val sUri = MongoClientURI(inject [String]("casbah-snapshot.mongo-url"))
+    val sConn = MongoClient(sUri)
+    val sDb = sConn(sUri.database.get)
+    sDb.dropDatabase()
+  }
+
 
 }

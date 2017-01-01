@@ -76,9 +76,7 @@ class DialogsListSupervisor(implicit inj:Injector) extends PersistentActor with 
     }
     case cmd@MsgPosted(dlgId,_,_,_) => state(dlgId).between foreach(id=>sendToWorker(id, cmd))
     case cmd@MsgConsumed(dlgId,_,_) => state(dlgId).between foreach(id=>sendToWorker(id, cmd))
-    case "reset" => deleteMessages(Long.MaxValue); deleteSnapshots(new SnapshotSelectionCriteria)
-      usersDb() foreach(u=> sendToWorker(u.id, "reset"))
-      state = mutable.Map.empty
+    case "reset" => throw new Exception("reset dlg lists supervisor")
   }
 
   private def sendToWorker(id:Int, msg:Any):Unit = {
