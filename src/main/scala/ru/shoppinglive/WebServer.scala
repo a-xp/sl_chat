@@ -10,9 +10,9 @@ import akka.http.scaladsl.server.directives.DebuggingDirectives
 import akka.stream.{ActorMaterializer, Materializer}
 import kamon.Kamon
 import ru.shoppinglive.chat.admin_api.{CrmActor, CrmToken, MockCrmToken}
-import ru.shoppinglive.chat.chat_api.{ClientNotifier, ConversationSupervisor, ConversationsList}
+import ru.shoppinglive.chat.chat_api.{ClientNotifier, ConversationSupervisor, DialogsListSupervisor}
 import ru.shoppinglive.chat.client_connection.ConnectionSupervisor
-import ru.shoppinglive.chat.domain.Crm
+import ru.shoppinglive.chat.domain.{Crm, DialogHeader}
 import ru.shoppinglive.chat.server.Router
 import scaldi.{Injectable, Module, TypesafeConfigInjector}
 
@@ -31,12 +31,13 @@ object WebServer extends App with Injectable{
     bind [Materializer] to ActorMaterializer()(inject [ActorSystem])
     binding identifiedBy 'usersDb toNonLazy Agent[Seq[Crm.User]](Seq.empty)(inject [ExecutionContext])
     binding identifiedBy 'groupsDb toNonLazy Agent[Seq[Crm.Group]](Seq.empty)(inject [ExecutionContext])
+    binding identifiedBy 'dialogsDb toNonLazy Agent[Map[Int,DialogHeader]](Map.empty)(inject [ExecutionContext])
 
     binding identifiedBy 'notifier toNonLazy inject [ActorSystem] .actorOf(ClientNotifier.props, "notifier")
     binding identifiedBy 'connections toNonLazy inject [ActorSystem]   .actorOf(ConnectionSupervisor.props, "connections")
     binding identifiedBy 'crm toNonLazy inject [ActorSystem]   .actorOf(CrmActor.props, "crm")
-    binding identifiedBy 'chat toNonLazy inject [ActorSystem]    .actorOf(ConversationSupervisor.props, "dialogs")
-    binding identifiedBy 'chatList toNonLazy inject [ActorSystem]   .actorOf(ConversationsList.props, "dialogs_list")
+    binding identifiedBy 'dialogs toNonLazy inject [ActorSystem]    .actorOf(ConversationSupervisor.props, "dialogs")
+    binding identifiedBy 'contacts toNonLazy inject [ActorSystem]   .actorOf(DialogsListSupervisor.props, "contacts")
     binding identifiedBy 'auth toNonLazy inject [ActorSystem]    .actorOf(inject[String]("chat.auth.env") match {
       case "MOCK" => MockCrmToken.props
       case _ => CrmToken.props

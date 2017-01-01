@@ -35,7 +35,8 @@ class Reciever(val master:ActorRef) extends ActorSubscriber with ActorLogging {
     import org.json4s.ShortTypeHints
     import org.json4s.native.Serialization.read
     implicit val formats = Serialization.formats(ShortTypeHints(List(classOf[GetContacts], classOf[TokenCmd],
-      classOf[BroadcastCmd], classOf[ReadCmd], classOf[MsgCmd], classOf[TypingCmd], classOf[FindOrCreateDlgCmd])))
+      classOf[BroadcastCmd], classOf[ReadCmd], classOf[MsgCmd], classOf[TypingCmd], classOf[FindOrCreateDlgCmd],
+      classOf[GetGroups], classOf[ReadNewCmd])))
     Try{read[Cmd](tm.getStrictText)}.toOption
   }
 }

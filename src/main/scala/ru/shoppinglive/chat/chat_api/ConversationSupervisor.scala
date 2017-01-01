@@ -1,9 +1,11 @@
 package ru.shoppinglive.chat.chat_api
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.agent.Agent
 import akka.event.LoggingReceive
 import akka.stream.ActorMaterializer
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor.{DialogInfo, ResetDialog}
+import ru.shoppinglive.chat.domain.DialogHeader
 import scaldi.{Injectable, Injector}
 
 import scala.collection.mutable
@@ -14,21 +16,22 @@ import scala.collection.mutable
 class ConversationSupervisor(implicit inj:Injector)  extends Actor with ActorLogging with Injectable{
   import ru.shoppinglive.chat.chat_api.Cmd._
   implicit val materializer = ActorMaterializer()
-  private val dlgUsers = mutable.Map.empty[Int, Set[Int]]
+  private val dlgDb = inject [Agent[Map[Int, DialogHeader]]] ('dialogsDb)
   private val dlgActors = mutable.Map.empty[Int, ActorRef]
+
 
   override def receive: Receive = LoggingReceive {
     case athcmd @ AuthenticatedCmd(from, cmd, replyTo) => cmd match {
       case ReadCmd(dlgId,_,_) => sendCmd(dlgId, athcmd)
       case MsgCmd(dlgId,_) => sendCmd(dlgId, athcmd)
+      case ReadNewCmd(dlgId) => sendCmd(dlgId, athcmd)
       case _ =>
     }
-    case DialogInfo(id, users) => dlgUsers(id) = users
-    case cmd @ ResetDialog(id) => sendCmd(id, cmd)
+    case "reset" => dlgDb().values foreach(dlg=>sendCmd(dlg.id, "reset"))
   }
 
   private def sendCmd(dlgId:Int, cmd:Any) = {
-    dlgActors.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId, dlgUsers(dlgId)), "dlg-"+dlgId)) ! cmd
+    dlgActors.getOrElseUpdate(dlgId, context.actorOf(Conversation.props(dlgId), "dlg-"+dlgId)) ! cmd
   }
 }
 

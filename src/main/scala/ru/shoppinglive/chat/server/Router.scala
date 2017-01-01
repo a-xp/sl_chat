@@ -86,11 +86,12 @@ class Router(implicit inj:Injector) extends Injectable{
         }
       } ~ path("reset") {
         post {
-          complete(pattern.ask(inject [ActorRef] ('crm), CrmActor.ResetData) map {
-            case true => HttpResponse(StatusCodes.OK)
-          } recover {
-            case _ => HttpResponse(StatusCodes.InternalServerError)
-          })
+          complete(
+            for(_ <- pattern.ask(inject [ActorRef] ('crm), "reset");
+                _ <- pattern.ask(inject [ActorRef] ('contacts), "reset");
+                _ <- pattern.ask(inject [ActorRef] ('dialogs), "reset")
+            ) yield HttpResponse(StatusCodes.OK)
+           )
         } ~ {
           complete(HttpResponse(StatusCodes.AlreadyReported))
         }

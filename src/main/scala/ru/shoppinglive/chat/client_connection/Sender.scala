@@ -39,7 +39,7 @@ class Sender(val master:ActorRef) extends ActorPublisher[Message] with ActorLogg
     import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
     implicit val formats =Serialization.formats(ShortTypeHints(List(classOf[AuthSuccessResult], classOf[AuthFailedResult],
       classOf[GroupsResult], classOf[ContactsResult], classOf[ContactUpdate], classOf[DialogNewMsg], classOf[DialogMsgList],
-      classOf[TypingNotification])))
+      classOf[TypingNotification], classOf[DialogMsgAccepted], classOf[DialogIdResult])))
     TextMessage(write[Result](result))
   }
 

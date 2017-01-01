@@ -1,13 +1,14 @@
 package ru.shoppinglive.chat.chat_api
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.agent.Agent
 import akka.event.LoggingReceive
 import akka.persistence.PersistentActor
 import ru.shoppinglive.chat.chat_api.Cmd._
 import ru.shoppinglive.chat.chat_api.ConversationSupervisor._
 import ru.shoppinglive.chat.chat_api.Event.{DialogCreated, MsgConsumed, MsgPosted}
 import ru.shoppinglive.chat.chat_api.Result._
-import ru.shoppinglive.chat.domain.Dialog
+import ru.shoppinglive.chat.domain.{Dialog, DialogHeader}
 import scaldi.{Injectable, Injector}
 
 
@@ -17,10 +18,12 @@ import scaldi.{Injectable, Injector}
 
 object Conversation {
 
-  def props(id:Int, users:Set[Int])(implicit inj:Injector) = Props(new Conversation(id, users))
+  def props(id:Int)(implicit inj:Injector) = Props(new Conversation(id))
 }
 
-class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
+class Conversation(id:Int)(implicit inj:Injector) extends PersistentActor with ActorLogging with Injectable{
+  private val dlgDb = inject [Agent[Map[Int, DialogHeader]]] ('dialogsDb)
+  private val users = dlgDb()(id).between
   val api = new Dialog(id, users)
 
   override def receiveRecover: Receive = LoggingReceive {
@@ -32,18 +35,26 @@ class Conversation(id:Int, users:Set[Int])(implicit inj:Injector) extends Persis
     case AuthenticatedCmd(fromUser, cmd, replyTo) => cmd match {
       case ReadCmd(_, from, to) => if(api.hasNew(fromUser)){
         val msg = MsgConsumed(id, System.currentTimeMillis(), fromUser)
-        persist(msg){e => }
-        inject [ActorRef] ('chatList) ! msg
+        persistAsync(msg){e => }
+        inject [ActorRef] ('contacts) ! msg
       }
       replyTo ! DialogMsgList(id, api.read(fromUser, from, to), api.total, from, to)
       case MsgCmd(_, text) =>
         val msg = MsgPosted(id, System.currentTimeMillis(), fromUser, text)
-        persist(msg){ e =>  }
+        persistAsync(msg){ e =>  }
         api.newMsg(Dialog.Msg(msg.msg, msg.time, msg.from))
-        inject [ActorRef] ('chatList) ! msg
+        inject [ActorRef] ('contacts) ! msg
+        replyTo ! DialogMsgAccepted(id, text.##, msg.time)
+      case ReadNewCmd(_) =>
+        if(api.hasNew(fromUser)){
+          val msg = MsgConsumed(id, System.currentTimeMillis(), fromUser)
+          persistAsync(msg){e => }
+          inject [ActorRef] ('contacts) ! msg
+          replyTo ! DialogNewMsg(id, api.readNew(fromUser))
+        }
       case _ =>
     }
-    case ResetDialog(_) => deleteMessages(Long.MaxValue)
+    case "reset" => deleteMessages(Long.MaxValue)
       self ! PoisonPill
   }
 
