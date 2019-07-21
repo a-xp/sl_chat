@@ -2,6 +2,12 @@
 
 Simple corporate chat (backend)
 
+- Allows to text co-workers from predefined list
+- Shows new message notification
+- Shows status of contacts (ONLINE/OFFLINE)
+- Shows typing status
+
+
 [SL chat frontend](https://github.com/a-xp/sl_chat_client)
 
 ## Commands
