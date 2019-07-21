@@ -1,7 +1,8 @@
-# SL chat
+# SL chat backend
 
-Simple corporate chat
+Simple corporate chat (backend)
 
+[SL chat frontend](https://github.com/a-xp/sl_chat_client)
 
 ## Commands
 
