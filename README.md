@@ -2,6 +2,8 @@
 
 Simple corporate chat (backend)
 
+## Features
+
 - Allows to text co-workers from predefined list
 - Shows new message notification
 - Shows status of contacts (ONLINE/OFFLINE)
